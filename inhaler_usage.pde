@@ -11,27 +11,20 @@ void Inhalersetup(){
   inhalerImg = loadImage("inhaler.png");
 }
 
-
 void drawInhalerUsage(){
-  fill(bgColor);
-  stroke(200);
-  strokeWeight(2);
-  // a rounded rectangle inset by 20px on each side
-  rect(20, 20, width-40, height-40, 20);
+  background(bgColor);
   
-  // ─── Title ───
   fill(0);
   textSize(32);
   textAlign(CENTER, CENTER);
   text("Your inhaler usage", width/2, 80);
   
-  // ─── Dosages left (left) / Daily usage (right) ───
   textSize(20);
-  // left column
+
   textAlign(LEFT, TOP);
   text("Dosages left:\n" + dosagesLeft + " / " + totalDosages,
        width*0.15, height*0.3);
-  // right column
+
   textAlign(RIGHT, TOP);
   text("Daily usage:\n" 
        + dailyUsage 
@@ -48,11 +41,13 @@ void drawInhalerUsage(){
        + "% of the medication left,\nplease refill!!",
        width/2, height*0.55);
   
-  float imgW = 200;
-  float imgH = 100;
+  float imgW = 400;
+  float imgH = 200;
   float imgX = width/2 - imgW/2;
-  float imgY = height*0.75 - imgH/2;
+  float imgY = height*0.80 - imgH/2;
   
+  inhalerImg = loadImage("inhaler.png");
+
   imageMode(CORNER);
   image(inhalerImg, imgX, imgY, imgW, imgH);
 }

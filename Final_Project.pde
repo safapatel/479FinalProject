@@ -13,9 +13,10 @@ int dosage;
 int startTime; 
 int elapsedTime;
 
- 
 Button screenOne; // change to screen with graph/temp
 Button screenTwo; // change to screen with inhaler usage 
+Button backButton; // button to go back 
+Button homeButton; // button to go to first screen
 
 void setup() {
   
@@ -32,6 +33,7 @@ void draw() {
     case 0: drawFirstScreen();   break;
     case 1: drawSecondScreen();  break;
     case 2: drawThirdScreen();   break;
+    case 3: drawFourthScreen();   break;
   }
 }
 
@@ -66,18 +68,27 @@ void drawSecondScreen() {
   textFont(font); // Apply the font
   textAlign(CENTER, CENTER); // center text in middle
   
+  backButton.display(); 
+  homeButton.display();
+  
   int currentTime = millis() / 1000; 
   elapsedTime = currentTime - startTime;
   drawRespirationGraph();
   drawGauge(100, height - 100, 200, temperature, 68, 71, "Temp (°F)");
   drawGauge(350, height - 100, 200, humidity, 30, 50, "Humidity (%)");
-
 }
 
+// third screen to display the inhaler information 
 void drawThirdScreen(){
   drawInhalerUsage();
+  backButton.display(); 
+  homeButton.display();
 }
 
+void drawFourthScreen(){
+  backButton.display(); 
+  homeButton.display();
+}
 
 // button setup 
 void buttonSetup() {
@@ -88,6 +99,9 @@ void buttonSetup() {
     "Check breathing & weather");
   screenTwo = new Button(width/2 - btnW/2, height/2 + btnH + 20, btnW, btnH,
     "Track inhaler usage");
+    
+  backButton = new Button(width - 550 + 100, height - 645, 100, 20, "Back");
+  homeButton = new Button (width / 2 + 100, height - 645, 100, 20, "Home");
 }
 
 // mouse click behavior 
@@ -96,7 +110,19 @@ void mousePressed() {
     currentScreen = 1; // switch to the first screen
   } else if (currentScreen == 0 && screenTwo.isClicked(mouseX, mouseY) && !dosageAmount.equals("")) {
     currentScreen = 2; // switch to the second screen
-  } 
+  } else if (currentScreen == 1 && backButton.isClicked(mouseX, mouseY)){
+    currentScreen = 0; 
+  } else if (currentScreen == 2 && backButton.isClicked(mouseX, mouseY)){
+    currentScreen = 1;
+  } else if (currentScreen == 3 && backButton.isClicked(mouseX, mouseY)){
+    currentScreen = 2;
+  } else if (currentScreen == 1 && homeButton.isClicked(mouseX, mouseY)) {
+     currentScreen = 0;  
+  } else if (currentScreen == 2 && homeButton.isClicked(mouseX, mouseY)) {
+     currentScreen = 0;  
+  } else if (currentScreen == 3 && homeButton.isClicked(mouseX, mouseY)) {
+     currentScreen = 0;  
+  }
 }
 
 // take in user input of their dosage amount

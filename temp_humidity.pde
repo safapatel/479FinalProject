@@ -1,4 +1,3 @@
-
 /// CHANGE ACCORDING TO INPUTTT///
 float temperature = 70;     
 float humidity    = 70;     
