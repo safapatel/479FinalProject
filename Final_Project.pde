@@ -1,10 +1,8 @@
-import processing.sound.*;
 import processing.serial.*;
 
 int currentScreen = 0; // 0 is the first screen 
 
-// variable to store background color
-color bgColor = #D8F3F2;
+color bgColor = #D8F3F2; // variable to store background color
 
 String dosageAmount = ""; // user input of total dosage amount 
 
@@ -15,17 +13,20 @@ int elapsedTime;
 
 Button screenOne; // change to screen with graph/temp
 Button screenTwo; // change to screen with inhaler usage 
+Button screenThree; // change to screen with inhaler usage 
+
 Button backButton; // button to go back 
 Button homeButton; // button to go to first screen
 
 void setup() {
   
-   size(500, 650);
-   
-   buttonSetup();
-   
+  size(500, 650);
+  buttonSetup(); 
   setupRespirationGraph();
   firstTime = millis();
+  colorMode(HSB, 360, 100, 100);
+  noStroke();
+  ellipseMode(RADIUS);
 }
 
 void draw() {
@@ -34,6 +35,7 @@ void draw() {
     case 1: drawSecondScreen();  break;
     case 2: drawThirdScreen();   break;
     case 3: drawFourthScreen();   break;
+    case 4: drawBreathingScreen(); break;
   }
 }
 
@@ -45,7 +47,7 @@ void drawFirstScreen() {
   PFont font = createFont("Times new roman", 30, true); // Use script font
   textFont(font); // Apply the font
   textAlign(CENTER, CENTER); // center text in middle
-  text("Enter total dosage amount", width / 2, height / 5); // text to display 
+  text("Enter Total Dosage Amount: ", width / 2, height / 5); // text to display 
   
   // display user input
   fill(0);
@@ -57,6 +59,7 @@ void drawFirstScreen() {
   // display buttons
   screenOne.display();  
   screenTwo.display(); 
+  screenThree.display();
 }
 
 // second screen to display respiration graph and temp and humidity  
@@ -89,7 +92,10 @@ void drawFourthScreen(){
   backButton.display(); 
   homeButton.display();
 }
-
+void drawBreathingScreen() {
+  background(bgColor);
+  drawBreathingExercise();
+}
 // button setup 
 void buttonSetup() {
   float btnW = 300;
@@ -99,6 +105,7 @@ void buttonSetup() {
     "Check breathing & weather");
   screenTwo = new Button(width/2 - btnW/2, height/2 + btnH + 20, btnW, btnH,
     "Track inhaler usage");
+  screenThree = new Button(width/2 - btnW/2, height/2 + 2*(btnH + 20), btnW, btnH, "Breathing Exercise");
     
   backButton = new Button(width - 550 + 100, height - 645, 100, 20, "Back");
   homeButton = new Button (width / 2 + 100, height - 645, 100, 20, "Home");
@@ -122,7 +129,10 @@ void mousePressed() {
      currentScreen = 0;  
   } else if (currentScreen == 3 && homeButton.isClicked(mouseX, mouseY)) {
      currentScreen = 0;  
+  } else if (currentScreen == 0 && screenThree.isClicked(mouseX, mouseY)) {
+     currentScreen = 4;
   }
+  
 }
 
 // take in user input of their dosage amount
