@@ -10,6 +10,21 @@
 #ifndef _BV
 #define _BV(bit) (1 << (bit)) 
 #endif
+#define COV_RATIO           0.2    // ug/m3 / mV
+#define NO_DUST_VOLTAGE     400    // mV
+#define SYS_VOLTAGE         5000   // mV
+
+// I/O Pins
+const int ILED_PIN = 11;
+const int VOUT_PIN = 4;
+
+// Function Prototypes
+void setupSensor();
+int readDustSensor(int pin);
+int filterADC(int value);
+float convertToVoltage(int adcValue);
+float calculateDustDensity(float voltage);
+void displayDensity(float density);
 
 // Create an instance of the DHT11 class.
 // - For Arduino: Connect the sensor to Digital I/O Pin 2.
@@ -23,7 +38,7 @@ const int fsr_1 = A0;
 const int fsr_2 = A1;
 const int fsr_3 = A2;
 int valTouch, valRelease;
-SerialRecord writer(14);
+SerialRecord writer(15);
 
 Adafruit_MPR121 cap = Adafruit_MPR121();
 // Keeps track of the last pins touched so we know when buttons are 'released'
@@ -33,6 +48,7 @@ uint16_t currtouched = 0;
 void setup() {
     // Initialize serial communication to allow debugging and data readout.
     // Using a baud rate of 9600 bps.
+    setupSensor();
     Serial.begin(115200);
 
     // Get the currently touched pads
@@ -48,6 +64,10 @@ void loop() {
     // Attempt to read the temperature and humidity values from the DHT11 sensor.
     int result = dht11.readTemperatureHumidity(temperature, humidity);
 
+    int adcReading = readDustSensor(VOUT_PIN);
+    float voltage = convertToVoltage(adcReading);
+    float density = calculateDustDensity(voltage);
+
     // Check the results of the readings.
     // If the reading is successful, print the temperature and humidity values.
     // If there are errors, print the appropriate error messages.
@@ -61,6 +81,8 @@ void loop() {
         // Print error message based on the error code.
         Serial.println(DHT11::getErrorString(result));
     }
+
+    
 
   delay(500); // Set this to the desired delay. Default is 500ms.
 
@@ -108,10 +130,73 @@ void loop() {
   writer[11] = movementVal;
   writer[12] = valTouch;
   writer[13] = valRelease;
+  writer[14] = density;
 
     // Send structured message
   writer.send();*/
   
   // put a delay so it isn't overwhelming
   delay(200);
+}
+
+// Initialization
+void setupSensor() {
+  pinMode(ILED_PIN, OUTPUT);
+  digitalWrite(ILED_PIN, LOW);  // LED off initially
+}
+
+// Read and filter ADC value from dust sensor
+int readDustSensor(int pin) {
+  digitalWrite(ILED_PIN, HIGH);
+  delayMicroseconds(280);
+  int adcRaw = analogRead(pin);
+  digitalWrite(ILED_PIN, LOW);
+
+  return filterADC(adcRaw);
+}
+
+// Moving average filter
+int filterADC(int value) {
+  static int initialized = 0;
+  static int buffer[10];
+  static int sum;
+  const int bufferSize = 10;
+
+  if (!initialized) {
+    for (int i = 0; i < bufferSize; i++) {
+      buffer[i] = value;
+    }
+    sum = value * bufferSize;
+    initialized = 1;
+  } else {
+    sum -= buffer[0];
+    for (int i = 0; i < bufferSize - 1; i++) {
+      buffer[i] = buffer[i + 1];
+    }
+    buffer[bufferSize - 1] = value;
+    sum += value;
+  }
+
+  return sum / bufferSize;
+}
+
+// Convert ADC value to voltage in millivolts
+float convertToVoltage(int adcValue) {
+  return (SYS_VOLTAGE / 1024.0) * adcValue * 11.0;
+}
+
+// Convert voltage to dust concentration
+float calculateDustDensity(float voltage) {
+  if (voltage >= NO_DUST_VOLTAGE) {
+    return (voltage - NO_DUST_VOLTAGE) * COV_RATIO;
+  } else {
+    return 0;
+  }
+}
+
+// Display the dust density over Serial
+void displayDensity(float density) {
+  Serial.print("The current dust concentration is: ");
+  Serial.print(density);
+  Serial.println(" ug/m3");
 }
