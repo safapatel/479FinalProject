@@ -24,7 +24,6 @@ void setup() {
   buttonSetup(); 
   setupRespirationGraph();
   firstTime = millis();
-  colorMode(HSB, 360, 100, 100);
   noStroke();
   ellipseMode(RADIUS);
 }
@@ -131,6 +130,8 @@ void mousePressed() {
      currentScreen = 0;  
   } else if (currentScreen == 0 && screenThree.isClicked(mouseX, mouseY)) {
      currentScreen = 4;
+     netTime = 0;
+     clickTime = currTime;
   }
   
 }

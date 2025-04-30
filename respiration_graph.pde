@@ -70,12 +70,12 @@ void drawRespirationGraph() {
     fill(0);
     textSize(15);
     textAlign(CENTER, CENTER);
-    text("Respiratory Rate", respiratoryGraphWidth / 2, respiratorygraphHeight + 40);  // Y-axis label
+    text("Time (sec)", respiratoryGraphWidth / 2, respiratorygraphHeight + 40);  // Y-axis label
     
     pushMatrix();
     translate(respiratoryGraphWidth - 470, respiratorygraphHeight/2);
     rotate(-HALF_PI);
-    text("Time", 0, 0);
+    text("Respiratory Rate", 0, 0);
     popMatrix();
     
     int numLines = 4;                    
