@@ -11,6 +11,10 @@ int dosage;
 int startTime; 
 int elapsedTime;
 
+SerialRecord serialRecord;
+Serial myPort;
+
+
 Button screenOne; // change to screen with graph/temp
 Button screenTwo; // change to screen with inhaler usage 
 Button screenThree; // change to screen with inhaler usage 
@@ -19,13 +23,15 @@ Button backButton; // button to go back
 Button homeButton; // button to go to first screen
 
 void setup() {
-  
+ 
   size(500, 650);
   buttonSetup(); 
   setupRespirationGraph();
   firstTime = millis();
   noStroke();
-  ellipseMode(RADIUS);
+  printArray(Serial.list());
+  myPort = new Serial(this, Serial.list()[0], 115200);
+  serialRecord = new SerialRecord(this, myPort, 11);
 }
 
 void draw() {
@@ -36,6 +42,15 @@ void draw() {
     case 3: drawFourthScreen();   break;
     case 4: drawBreathingScreen(); break;
   }
+  serialRecord.read();
+  float fsr1 = serialRecord.values[0] / 1023.0;
+  float fsr2   = serialRecord.values[1] / 1023.0;
+  float fsr3   = serialRecord.values[2] / 1023.0;
+  float temp   = serialRecord.values[3];
+
+  
+  println(fsr1 + "," + fsr2 + "," + fsr3 + "," + temp);
+  
 }
 
 // first screen to take in dosage input 

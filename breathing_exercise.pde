@@ -1,3 +1,5 @@
+import osteele.processing.SerialRecord.*;
+
 
 float size = 10; //current size - continuously updated
 float minSize = 50; //minimum circle size
@@ -8,9 +10,10 @@ int sec = 5; //count down time
 int currTime = millis()/1000;
 
 void drawBreathingExercise(){
+  ellipseMode(RADIUS);
   colorMode(HSB, 360, 100, 100);
   currTime = millis()/1000;
-  size = map(sin(frameCount * sizeSpeed),-1.0,1.0,minSize,maxSize);
+  size = map(sin(   frameCount * sizeSpeed),-1.0,1.0,minSize,maxSize);
   netTime = currTime-clickTime;
   println("clicked: ", clickTime, ", ongoing: ", currTime, ", during: ", netTime);
   textSize(40);
