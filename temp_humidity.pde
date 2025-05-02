@@ -17,10 +17,10 @@ void drawGauge(float x, float y, float size, float value, float safeMin, float s
 
   noStroke();
   color[] bandColors = {
-    #e63946,  // red
-    #f4a261,  // orange
+    #2a9d8f,  // green
     #e9c46a,  // yellow
-    #2a9d8f   // green
+    #f4a261,  // orange
+    #e63946   // red
   };
   for(int i = 0; i < 4; i++) {
     fill(bandColors[i]);

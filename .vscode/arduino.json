@@ -1,0 +1,6 @@
+{
+    "port": "/dev/tty.usbmodem123456781",
+    "configuration": "cpu=8MHzatmega328",
+    "board": "arduino:avr:pro",
+    "sketch": "Arduino/Arduino.ino"
+}

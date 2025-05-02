@@ -25,8 +25,10 @@ Button homeButton; // button to go to first screen
 MotionData motion;
 int motionValue = 0;
 
+int valTouch = 0;
+int valRelease = 0;
 
-int motionValue = 0;
+
 
 void setup() {
  
@@ -56,20 +58,28 @@ void draw() {
     float gyroY = serialRecord.values[9];
     float gyroZ = serialRecord.values[10];
     motionValue = serialRecord.values[11];
+    valTouch = serialRecord.values[12];
+    valRelease = serialRecord.values[13];
     motion = new MotionData(accelX, accelY, accelZ, gyroX, gyroY, gyroZ);
 
-  // Process both types of respiration data
-  addPointToRespirationGraph(fsr1); // Process for original graph                 // Process for FSR graph
+    // Process all three FSR values
+    float[] fsrValues = {fsr1, fsr2, fsr3};
+    processRespirationSignal(fsrValues);
 
-  switch(currentScreen){
-    case 0: drawFirstScreen();   break;
-    case 1: drawSecondScreen();  break;
-    case 2: drawThirdScreen();   break;
-    case 3: drawFourthScreen();   break;
-    case 4: drawBreathingScreen(); break;
-  }
-  
-  //println(fsr1 + "," + fsr2 + "," + fsr3 + "," + temperature);
+    // Update inhaler usage tracking
+    if (currentScreen == 2) {  // Only track when on inhaler usage screen
+      updateInhalerUsage(valTouch, valRelease);
+    }
+
+    switch(currentScreen){
+      case 0: drawFirstScreen();   break;
+      case 1: drawSecondScreen();  break;
+      case 2: drawThirdScreen();   break;
+      case 3: drawFourthScreen();   break;
+      case 4: drawBreathingScreen(); break;
+    }
+    
+    //println(fsr1 + "," + fsr2 + "," + fsr3 + "," + temperature);
   } catch (Exception e) {
     println("Error reading serial data: " + e.getMessage());
   }
@@ -90,7 +100,13 @@ void drawFirstScreen() {
   textSize(30);
   text(dosageAmount, width / 2, height / 4);
   
-  dosage = parseInt(dosageAmount);
+  // Update dosage when Enter is pressed or when switching screens
+  if (!dosageAmount.equals("")) {
+    dosage = parseInt(dosageAmount);
+    // Initialize inhaler usage with the new dosage
+    totalDosages = dosage;
+    dosagesLeft = dosage;
+  }
   
   // display buttons
   screenOne.display();  
@@ -113,8 +129,9 @@ void drawSecondScreen() {
   int currentTime = millis() / 1000; 
   elapsedTime = currentTime - startTime;
   drawRespirationGraph();
-  drawGauge(100, height - 100, 200, temperature, 68, 71, "Temp (°F)");
-  drawGauge(350, height - 100, 200, humidity, 30, 50, "Humidity (%)");
+  // Convert temperature to Celsius and adjust safe range (20-22°C is comfortable room temperature)
+  drawGauge(100, height - 100, 150, temperature, 20, 22, "Temp (°C)");
+  drawGauge(350, height - 100, 150, humidity, 30, 50, "Humidity (%)");
 }
 
 // third screen to display the inhaler information 
@@ -130,7 +147,12 @@ void drawFourthScreen(){
 }
 void drawBreathingScreen() {
   background(bgColor);
+  // Pass FSR values to the breathing exercise
+  updateBreathingExercise(serialRecord.values[0], serialRecord.values[1], serialRecord.values[2]);
   drawBreathingExercise();
+  // Add navigation buttons
+  backButton.display();
+  homeButton.display();
 }
 // button setup 
 void buttonSetup() {
@@ -151,8 +173,16 @@ void buttonSetup() {
 void mousePressed() {
   if (currentScreen == 0 && screenOne.isClicked(mouseX, mouseY) && !dosageAmount.equals("")) { 
     currentScreen = 1; // switch to the first screen
+    // Ensure dosage is initialized before switching screens
+    dosage = parseInt(dosageAmount);
+    totalDosages = dosage;
+    dosagesLeft = dosage;
   } else if (currentScreen == 0 && screenTwo.isClicked(mouseX, mouseY) && !dosageAmount.equals("")) {
     currentScreen = 2; // switch to the second screen
+    // Ensure dosage is initialized before switching screens
+    dosage = parseInt(dosageAmount);
+    totalDosages = dosage;
+    dosagesLeft = dosage;
   } else if (currentScreen == 1 && backButton.isClicked(mouseX, mouseY)){
     currentScreen = 0; 
   } else if (currentScreen == 2 && backButton.isClicked(mouseX, mouseY)){
@@ -169,8 +199,11 @@ void mousePressed() {
      currentScreen = 4;
      netTime = 0;
      clickTime = currTime;
+  } else if (currentScreen == 4 && backButton.isClicked(mouseX, mouseY)) {
+     currentScreen = 0;
+  } else if (currentScreen == 4 && homeButton.isClicked(mouseX, mouseY)) {
+     currentScreen = 0;
   }
-  
 }
 
 // take in user input of their dosage amount
