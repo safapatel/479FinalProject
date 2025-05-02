@@ -22,6 +22,12 @@ Button screenThree; // change to screen with inhaler usage
 Button backButton; // button to go back 
 Button homeButton; // button to go to first screen
 
+MotionData motion;
+int motionValue = 0;
+
+
+int motionValue = 0;
+
 void setup() {
  
   size(500, 650);
@@ -30,27 +36,43 @@ void setup() {
   firstTime = millis();
   noStroke();
   printArray(Serial.list());
-  myPort = new Serial(this, Serial.list()[0], 115200);
-  serialRecord = new SerialRecord(this, myPort, 11);
+  myPort = new Serial(this, Serial.list()[3], 115200);
+  serialRecord = new SerialRecord(this, myPort, 15);
 }
 
 void draw() {
-    switch(currentScreen){
+
+  try {
+    serialRecord.read();
+    float fsr1 = serialRecord.values[0];
+    float fsr2 = serialRecord.values[1];
+    float fsr3 = serialRecord.values[2];
+    temperature = serialRecord.values[3];
+    humidity = serialRecord.values[4];
+    float accelX = serialRecord.values[5];
+    float accelY = serialRecord.values[6];
+    float accelZ = serialRecord.values[7];
+    float gyroX = serialRecord.values[8];
+    float gyroY = serialRecord.values[9];
+    float gyroZ = serialRecord.values[10];
+    motionValue = serialRecord.values[11];
+    motion = new MotionData(accelX, accelY, accelZ, gyroX, gyroY, gyroZ);
+
+  // Process both types of respiration data
+  addPointToRespirationGraph(fsr1); // Process for original graph                 // Process for FSR graph
+
+  switch(currentScreen){
     case 0: drawFirstScreen();   break;
     case 1: drawSecondScreen();  break;
     case 2: drawThirdScreen();   break;
     case 3: drawFourthScreen();   break;
     case 4: drawBreathingScreen(); break;
   }
-  serialRecord.read();
-  float fsr1 = serialRecord.values[0] / 1023.0;
-  float fsr2   = serialRecord.values[1] / 1023.0;
-  float fsr3   = serialRecord.values[2] / 1023.0;
-  float temp   = serialRecord.values[3];
-
   
-  println(fsr1 + "," + fsr2 + "," + fsr3 + "," + temp);
-  
+  //println(fsr1 + "," + fsr2 + "," + fsr3 + "," + temperature);
+  } catch (Exception e) {
+    println("Error reading serial data: " + e.getMessage());
+  }
 }
 
 // first screen to take in dosage input 

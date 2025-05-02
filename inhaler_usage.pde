@@ -51,3 +51,37 @@ void drawInhalerUsage(){
   imageMode(CORNER);
   image(inhalerImg, imgX, imgY, imgW, imgH);
 }
+class MotionData {
+  // Acceleration data
+  float accelX;
+  float accelY;
+  float accelZ;
+  
+  // Gyroscope data
+  float gyroX;
+  float gyroY;
+  float gyroZ;
+  
+  // Constructor
+  MotionData(float ax, float ay, float az, float gx, float gy, float gz) {
+    accelX = ax;
+    accelY = ay;
+    accelZ = az;
+    gyroX = gx;
+    gyroY = gy;
+    gyroZ = gz;
+  }
+  
+  // Create from serial data array
+  MotionData(float[] values) {
+    if (values.length >= 11) { // Make sure we have enough data
+      accelX = values[5];
+      accelY = values[6];
+      accelZ = values[7];
+      gyroX = values[8];
+      gyroY = values[9];
+      gyroZ = values[10];
+    }
+  }
+  
+}

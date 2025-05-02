@@ -7,7 +7,7 @@ float chartX = 10;
 float chartY = 20;
 int respiratoryGraphWidth = 450;
 int respiratorygraphHeight = 300;
-final int timeWindow = 120;
+final int timeWindow = 30;
 long firstTime = 0;
 
 void setupRespirationGraph() {
@@ -46,34 +46,40 @@ void drawRespirationGraph() {
     
     // Set point and line colors based on respiratory rate
     fill(0); // text color
-    if (respirationRates.size() > 0) {
-        float latestRate = respirationRates.get(respirationRates.size() - 1);
-        
-        if (latestRate >= 40) {
-            respirationGraph.setPointColour(color(200, 50, 50)); // Red (High)
-            respirationGraph.setLineColour(color(200, 50, 50));
-        }
-        else if (latestRate >= 30) {
-            respirationGraph.setPointColour(color(230, 150, 50)); // Orange (Moderate)
-            respirationGraph.setLineColour(color(230, 150, 50));
-        }
-        else {
-            respirationGraph.setPointColour(color(100, 180, 100)); // Green (Normal)
-            respirationGraph.setLineColour(color(100, 180, 100));
+    if (time.size() > 1) {  // Ensure there are at least 2 points to connect
+        for (int i = 1; i < time.size(); i++) {
+            float x1 = map(time.get(i - 1), time.get(0), time.get(time.size() - 1), chartX, respiratoryGraphWidth - 35);
+            float y1 = map(respirationRates.get(i - 1), 12, 1100, respiratorygraphHeight, 0);
+            float x2 = map(time.get(i), time.get(0), time.get(time.size() - 1), chartX, respiratoryGraphWidth - 35);
+            float y2 = map(respirationRates.get(i), 12, 1100, respiratorygraphHeight, 0);
+            
+            // Set color dynamically for each segment based on respiration rate
+            float rate = respirationRates.get(i);
+            if (rate >= 700) {
+                stroke(200, 50, 50); // Red (High)
+            } else if (rate >= 300) {
+                stroke(230, 150, 50); // Orange (Moderate)
+            } else {
+                stroke(100, 180, 100); // Green (Normal)
+            }
+            strokeWeight(2);
+            line(x1, y1, x2, y2); // Draw line segment
         }
     }
 
-    // Draw respiration graph
-    respirationGraph.draw(-4, 10, respiratoryGraphWidth, respiratorygraphHeight);
-   
+    // // Ensure there is enough data to draw the graph
+    // if (time.size() > 1 && respirationRates.size() > 1) {
+    //     respirationGraph.draw(-4, 10, respiratoryGraphWidth, respiratorygraphHeight);
+    // }
+
     // Draw labels
     fill(0);
     textSize(15);
     textAlign(CENTER, CENTER);
-    text("Time (sec)", respiratoryGraphWidth / 2, respiratorygraphHeight + 40);  // Y-axis label
+    text("Time (sec)", respiratoryGraphWidth / 2, respiratorygraphHeight + 40);  // X-axis label
     
     pushMatrix();
-    translate(respiratoryGraphWidth - 470, respiratorygraphHeight/2);
+    translate(respiratoryGraphWidth - 470, respiratorygraphHeight / 2);
     rotate(-HALF_PI);
     text("Respiratory Rate", 0, 0);
     popMatrix();
@@ -122,7 +128,7 @@ float prevBreathTime = 0;  // Stores the last detected breath timestamp
 
 void processRespirationSignal(float breathSignal) {
     // Check if the signal crosses a threshold (basic peak detection)
-    if (breathSignal > 0.6) {  // Assuming normalized signal (0 to 1)
+    if (breathSignal > 0.05) {  // Assuming normalized signal (0 to 1)
         float currentTime = millis() / 1000.0;  // Convert to seconds
 
         if (prevBreathTime > 0) {

@@ -1,202 +1,241 @@
-#include <DHT11.h>
-
-// Include the DHT11 library for interfacing with the sensor.
-#include <Adafruit_MPU6050.h> //gyro
-#include <Adafruit_Sensor.h>
-#include "Adafruit_MPR121.h" //touch sensor
 #include "SerialRecord.h"
-#include <dht11.h>
+#include <DHT11.h>
+#include <dht_nonblocking.h>
+#include <Adafruit_MPU6050.h>
+#include <Adafruit_Sensor.h>
+#include "Adafruit_MPR121.h"
+#include <Wire.h>
 
+//touch sensor definitions
 #ifndef _BV
 #define _BV(bit) (1 << (bit)) 
 #endif
-#define COV_RATIO           0.2    // ug/m3 / mV
-#define NO_DUST_VOLTAGE     400    // mV
-#define SYS_VOLTAGE         5000   // mV
 
-// I/O Pins
-const int ILED_PIN = 11;
-const int VOUT_PIN = 4;
+//Dust sensor definitions
+#define        COV_RATIO                       0.2            //ug/mmm / mv
+#define        NO_DUST_VOLTAGE                 400            //mv
+#define        SYS_VOLTAGE                     5000    
 
-// Function Prototypes
-void setupSensor();
-int readDustSensor(int pin);
-int filterADC(int value);
-float convertToVoltage(int adcValue);
-float calculateDustDensity(float voltage);
-void displayDensity(float density);
+// DHT Sensor definitions and pins
+#define DHT_SENSOR_TYPE DHT_TYPE_11
+const int DHT_SENSOR_PIN = 10;
+DHT_nonblocking dht_sensor(DHT_SENSOR_PIN, DHT_SENSOR_TYPE);
 
-// Create an instance of the DHT11 class.
-// - For Arduino: Connect the sensor to Digital I/O Pin 2.
-// - For ESP32: Connect the sensor to pin GPIO2 or P2.
-// - For ESP8266: Connect the sensor to GPIO2 or D4.
+//FSR PINS
+const int FSR1_PIN = A0;
+const int FSR2_PIN = A1;
+const int FSR3_PIN = A2;
+
+//Dust sensor pins and variables
+const int iled = 6;                                            //drive the led of sensor
+const int vout = 4;                                            //analog input
+float density, voltage;
+int   adcvalue;
+
+//MPU6050 
 Adafruit_MPU6050 mpu;
+sensors_event_t accel, gyro, temp;
+sensors_event_t lastAccel;
 
-DHT11 dht11(8);
-
-const int fsr_1 = A0;
-const int fsr_2 = A1;
-const int fsr_3 = A2;
-int valTouch, valRelease;
-SerialRecord writer(15);
-
+//Touch sensor
 Adafruit_MPR121 cap = Adafruit_MPR121();
-// Keeps track of the last pins touched so we know when buttons are 'released'
+int valTouch, valRelease;
 uint16_t lasttouched = 0;
 uint16_t currtouched = 0;
 
+SerialRecord writer(15);
+
+
+// Function Prototypes
+void setupMPU6050();
+void setupMPR121();
+bool readDHT(float* temperature, float* humidity);
+int computeMotionValue();
+void updateMotionEvents();
+void readTouchSensors();
+//Dust sensor functions
+int Filter(int m);
+void setupDustSensor();
+float readDustSensor(int pin);
+
 void setup() {
-    // Initialize serial communication to allow debugging and data readout.
-    // Using a baud rate of 9600 bps.
-    setupSensor();
-    Serial.begin(115200);
-
-    // Get the currently touched pads
-    currtouched = cap.touched();
-
-    // Uncomment the line below to set a custom delay between sensor readings (in milliseconds).
+  Serial.begin(115200);
+  setupMPU6050();
+  setupMPR121();
+  //setupDustSensor();
 }
 
 void loop() {
-    int temperature = 0;
-    int humidity = 0;
+  float temperature = 0, humidity = 0, density = 0;
 
-    // Attempt to read the temperature and humidity values from the DHT11 sensor.
-    int result = dht11.readTemperatureHumidity(temperature, humidity);
+  if (mpu.getMotionInterruptStatus()) {
+    updateMotionEvents();
+  }
+  readTouchSensors();
 
-    int adcReading = readDustSensor(VOUT_PIN);
-    float voltage = convertToVoltage(adcReading);
-    float density = calculateDustDensity(voltage);
 
-    // Check the results of the readings.
-    // If the reading is successful, print the temperature and humidity values.
-    // If there are errors, print the appropriate error messages.
-    if (result == 0) {
-        Serial.print("Temperature: ");
-        Serial.print(temperature);
-        Serial.print(" °C\tHumidity: ");
-        Serial.print(humidity);
-        Serial.println(" %");
-    } else {
-        // Print error message based on the error code.
-        Serial.println(DHT11::getErrorString(result));
-    }
 
-    
+  writer[0] = analogRead(FSR1_PIN);
+  writer[1] = analogRead(FSR2_PIN);
+  writer[2] = analogRead(FSR3_PIN);
 
-  delay(500); // Set this to the desired delay. Default is 500ms.
-
-  /*static sensors_event_t lastA;
-  sensors_event_t a, g, temp;
-  mpu.getEvent(&a, &g, &temp);
-
-  // Acceleration delta
-  float dx = a.acceleration.x - lastA.acceleration.x;
-  float dy = a.acceleration.y - lastA.acceleration.y;
-  float dz = a.acceleration.z - lastA.acceleration.z;
-  float deltaAcc = sqrt(dx*dx + dy*dy + dz*dz);
-  lastA = a;
-  // Gyro magnitude (optional)
-  float gyroMag = sqrt(g.gyro.x * g.gyro.x + g.gyro.y * g.gyro.y + g.gyro.z * g.gyro.z);
-
-  // Final motion value
-  int movementVal = (int)((deltaAcc + gyroMag) * 100);
-
-  for (uint8_t i=0; i<11; i++) {
-    // it if *is* touched and *wasnt* touched before, alert!
-    if ((currtouched & _BV(i)) && !(lasttouched & _BV(i)) ) {
-      valTouch = i; 
-    }
-    // if it *was* touched and now *isnt*, alert!
-    if (!(currtouched & _BV(i)) && (lasttouched & _BV(i)) ) {
-      valRelease  = i; 
-    }
+  if (readDHT(&temperature, &humidity)) {
+    writer[3] = temperature;
+    writer[4] = humidity;
   }
 
-  // reset our state
-  lasttouched = currtouched;
+  writer[5] = accel.acceleration.x;
+  writer[6] = accel.acceleration.y;
+  writer[7] = accel.acceleration.z;
 
-  writer[0] = analogRead(fsr_1);
-  writer[1] = analogRead(fsr_2);
-  writer[2] = analogRead(fsr_3);
-  writer[3] = temperature;
-  writer[4] = humidity;
-  writer[5] = a.acceleration.x;
-  writer[6] = a.acceleration.y;
-  writer[7] = a.acceleration.z;
-  writer[8] = g.gyro.x;
-  writer[9] = g.gyro.y;
-  writer[10] = g.gyro.z;
-  writer[11] = movementVal;
+  writer[8] = gyro.gyro.x;
+  writer[9] = gyro.gyro.y;
+  writer[10] = gyro.gyro.z;
+
+  writer[11] = computeMotionValue();
+
   writer[12] = valTouch;
   writer[13] = valRelease;
-  writer[14] = density;
+  writer[14] = 0;
 
-    // Send structured message
-  writer.send();*/
-  
-  // put a delay so it isn't overwhelming
-  delay(200);
+
+  writer.send();
+
+  delay(10); // Optional: minimal delay to prevent overload
 }
 
-// Initialization
-void setupSensor() {
-  pinMode(ILED_PIN, OUTPUT);
-  digitalWrite(ILED_PIN, LOW);  // LED off initially
+// --------------------------------------------------------------------------------------------------
+// Setup & Initialization
+// --------------------------------------------------------------------------------------------------
+void setupMPU6050() {
+  // MPU6050
+  if (!mpu.begin()) {
+    Serial.println("Failed to find MPU6050 chip");
+  } else {
+    Serial.println("MPU6050 Found!");
+    mpu.setHighPassFilter(MPU6050_HIGHPASS_0_63_HZ);
+    mpu.setMotionDetectionThreshold(1);
+    mpu.setMotionDetectionDuration(20);
+    mpu.setInterruptPinLatch(true);
+    mpu.setInterruptPinPolarity(true);
+    mpu.setMotionInterrupt(true);
+  }
 }
 
-// Read and filter ADC value from dust sensor
-int readDustSensor(int pin) {
-  digitalWrite(ILED_PIN, HIGH);
+void setupMPR121() {
+  while (!cap.begin(0x5A)) {
+    Serial.println("MPR121 not found, check wiring?");
+  }
+  Serial.println("MPR121 found!");
+  currtouched = cap.touched();
+}
+
+void setupDustSensor() {
+  pinMode(iled, OUTPUT);
+  digitalWrite(iled, LOW);                                     //iled default closed                                        //send and receive at 9600 baud
+}
+
+// --------------------------------------------------------------------------------------------------
+// Sensor Reading Functions
+// --------------------------------------------------------------------------------------------------
+void updateMotionEvents() {
+  mpu.getEvent(&accel, &gyro, &temp);
+}
+
+int computeMotionValue() {
+  float dx = accel.acceleration.x - lastAccel.acceleration.x;
+  float dy = accel.acceleration.y - lastAccel.acceleration.y;
+  float dz = accel.acceleration.z - lastAccel.acceleration.z;
+  float deltaAcc = sqrt(dx * dx + dy * dy + dz * dz);
+
+  lastAccel = accel;
+
+  float gyroMag = sqrt(gyro.gyro.x * gyro.gyro.x +
+                       gyro.gyro.y * gyro.gyro.y +
+                       gyro.gyro.z * gyro.gyro.z);
+
+  return (int)((deltaAcc + gyroMag) * 100);
+}
+
+bool readDHT(float* temperature, float* humidity) {
+  static unsigned long lastMeasureTime = 0;
+
+  if (millis() - lastMeasureTime > 3000ul) {
+    if (dht_sensor.measure(temperature, humidity)) {
+      lastMeasureTime = millis();
+      return true;
+    }
+  }
+  return false;
+}
+
+//read touch sensors
+void readTouchSensors() {
+  lasttouched = currtouched;
+  currtouched = cap.touched();
+
+  for (uint8_t i = 0; i < 11; i++) {
+    if ((currtouched & _BV(i)) && !(lasttouched & _BV(i))) {
+      valTouch = i;
+    }
+    if (!(currtouched & _BV(i)) && (lasttouched & _BV(i))) {
+      valRelease = i;
+    }
+  }
+}
+
+//read dust sensor
+float readDustSensor(){
+  digitalWrite(iled, HIGH);
   delayMicroseconds(280);
-  int adcRaw = analogRead(pin);
-  digitalWrite(ILED_PIN, LOW);
+  adcvalue = analogRead(vout);
+  digitalWrite(iled, LOW);
+  adcvalue = Filter(adcvalue);
 
-  return filterADC(adcRaw);
-}
+  //covert voltage (mv)
+  voltage = (SYS_VOLTAGE / 1024.0) * adcvalue * 11;
 
-// Moving average filter
-int filterADC(int value) {
-  static int initialized = 0;
-  static int buffer[10];
-  static int sum;
-  const int bufferSize = 10;
-
-  if (!initialized) {
-    for (int i = 0; i < bufferSize; i++) {
-      buffer[i] = value;
-    }
-    sum = value * bufferSize;
-    initialized = 1;
-  } else {
-    sum -= buffer[0];
-    for (int i = 0; i < bufferSize - 1; i++) {
-      buffer[i] = buffer[i + 1];
-    }
-    buffer[bufferSize - 1] = value;
-    sum += value;
+  //voltage to density
+  if(voltage >= NO_DUST_VOLTAGE)
+  {
+    voltage -= NO_DUST_VOLTAGE;
+    density = voltage * COV_RATIO;
   }
-
-  return sum / bufferSize;
+  else {density = 0;}
+    
 }
-
-// Convert ADC value to voltage in millivolts
-float convertToVoltage(int adcValue) {
-  return (SYS_VOLTAGE / 1024.0) * adcValue * 11.0;
-}
-
-// Convert voltage to dust concentration
-float calculateDustDensity(float voltage) {
-  if (voltage >= NO_DUST_VOLTAGE) {
-    return (voltage - NO_DUST_VOLTAGE) * COV_RATIO;
-  } else {
-    return 0;
+// --------------------------------------------------------------------------------------------------
+// Helper Functions
+// --------------------------------------------------------------------------------------------------
+int Filter(int m)
+{
+  static int flag_first = 0, _buff[10], sum;
+  const int _buff_max = 10;
+  int i;
+  
+  if(flag_first == 0)
+  {
+    flag_first = 1;
+    for(i = 0, sum = 0; i < _buff_max; i++)
+    {
+      _buff[i] = m;
+      sum += _buff[i];
+    }
+    return m;
+  }
+  else
+  {
+    sum -= _buff[0];
+    for(i = 0; i < (_buff_max - 1); i++)
+    {
+      _buff[i] = _buff[i + 1];
+    }
+    _buff[9] = m;
+    sum += _buff[9];
+    
+    i = sum / 10.0;
+    return i;
   }
 }
 
-// Display the dust density over Serial
-void displayDensity(float density) {
-  Serial.print("The current dust concentration is: ");
-  Serial.print(density);
-  Serial.println(" ug/m3");
-}
+
